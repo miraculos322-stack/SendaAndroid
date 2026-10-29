@@ -21,6 +21,8 @@ public class MainActivity extends Activity {
         webView = new WebView(this);
         setContentView(webView);
         webView.getSettings().setJavaScriptEnabled(true);
+        webView.getSettings().setAllowFileAccess(true);
+        webView.getSettings().setAllowContentAccess(true);
         webView.getSettings().setDomStorageEnabled(true);
         webView.getSettings().setGeolocationEnabled(true);
         webView.setWebViewClient(new WebViewClient());
