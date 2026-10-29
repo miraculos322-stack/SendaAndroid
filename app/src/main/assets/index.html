@@ -41,10 +41,10 @@ h3{font-size:15px;margin:5px 0 6px}.badge{display:inline-block;border-radius:99p
 <div class="card" style="padding:9px"><div id="map"></div><div class="mapnote">Mapa © OpenStreetMap contributors. Las paradas dependen de los datos cartografiados disponibles.</div></div>
 <div class="sectiontitle">Accesos rápidos</div>
 <div class="quick">
-<button data-tab="buses">🚌 Buses cercanos<small class="sub">Buscar paradas alrededor</small></button>
-<button data-tab="routes">🧭 Buscar rutas<small class="sub">Origen y destino</small></button>
-<button data-tab="guardian">🛡️ Modo Guardián<small class="sub">Preparar aviso de viaje</small></button>
-<button data-tab="access">♿ Accesibilidad<small class="sub">Opciones y orientación</small></button>
+<button data-tab="buses"><div>🚌 Buses cercanos</div><small class="sub">Buscar paradas alrededor</small></button>
+<button data-tab="routes"><div>🧭 Buscar rutas</div><small class="sub">Origen y destino</small></button>
+<button data-tab="guardian"><div>🛡️ Modo Guardián</div><small class="sub">Preparar aviso de viaje</small></button>
+<button data-tab="access"><div>♿ Accesibilidad</div><small class="sub">Opciones y orientación</small></button>
 </div>
 </section>
 
@@ -141,15 +141,17 @@ function setDestinationMarker(ll){
  destMarker.bindPopup('Punto seleccionado').openPopup();
 }
 async function geocode(q){
- const now=Date.now();const wait=Math.max(0,1100-(now-lastGeocode));if(wait)await new Promise(r=>setTimeout(r,wait));lastGeocode=Date.now();
- const url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=ec&q='+encodeURIComponent(q+', Quito, Ecuador');
- const res=await fetch(url,{headers:{'Accept':'application/json'}});if(!res.ok)throw new Error('Servicio de búsqueda no disponible');const arr=await res.json();if(!arr.length)throw new Error('No se encontró ese lugar. Prueba con una dirección más específica.');return {lat:Number(arr[0].lat),lon:Number(arr[0].lon),name:arr[0].display_name};
-}
-async function searchDestination(){
- const q=$('destination').value.trim();if(!q){status('homeStatus','Escribe un destino para buscar.','warning');return;}
- status('homeStatus','Buscando el lugar…');
- try{const p=await geocode(q);setDestinationMarker([p.lat,p.lon]);map.setView([p.lat,p.lon],16);selectedLatLng={lat:p.lat,lng:p.lon};$('destination').value=p.name; $('routeDestination').value=p.name;status('homeStatus','Destino encontrado y marcado en el mapa.');}
- catch(e){status('homeStatus',e.message+' Si el servicio no responde, inténtalo más tarde.','error');}
+ let busqueda = q.replace(/Pontificia Universidad Católica del Ecuador/gi, "PUCE").trim();
+ const now=Date.now();
+ const wait=Math.max(0,1100-(now-lastGeocode));
+ if(wait)await new Promise(r=>setTimeout(r,wait));
+ lastGeocode=Date.now();
+ const url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=ec&q='+encodeURIComponent(busqueda+', Quito, Ecuador');
+ const res=await fetch(url,{headers:{'Accept':'application/json'}});
+ if(!res.ok)throw new Error('Servicio de búsqueda no disponible'); 
+ const arr=await res.json();
+ if(!arr.length)throw new Error('No se encontró ese lugar. Prueba con una dirección más específica.');
+ return {lat:Number(arr[0].lat),lon:Number(arr[0].lon),name:q};
 }
 function distKm(a,b){const R=6371,dLat=(b.lat-a.lat)*Math.PI/180,dLon=(b.lon-a.lon)*Math.PI/180;const x=Math.sin(dLat/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(x));}
 async function findStops(){
@@ -168,7 +170,7 @@ async function findStops(){
  if(stopLayer)map.removeLayer(stopLayer);stopLayer=L.layerGroup().addTo(map);
  unique.forEach(s=>L.circleMarker([s.lat,s.lon],{radius:6,color:'#fff',weight:2,fillColor:'#d17b23',fillOpacity:1}).addTo(stopLayer).bindPopup('<b>'+escapeHtml(s.name)+'</b><br>Parada cartografiada<br>'+Math.round(s.distance*1000)+' m aprox.'));
  if(!unique.length){status('stopsStatus','No se encontraron paradas registradas en ese radio. Esto no significa que no existan paradas reales.','warning');return;}
- status('stopsStatus','Se encontraron '+unique.length+' elementos cartografiados. No son datos de buses en vivo.');
+ $('stopsResults').innerHTML=unique.slice(0,30).map((s,i)=>'<div class="result" style="padding:10px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;"><div><strong>'+escapeHtml(s.name)+'</strong><small style="display:block;">'+Math.round(s.distance*1000)+' m aprox.</small></div><button class="soft" style="padding:8px 12px; font-size:12px; min-height:auto; margin:0;" data-stop="'+i+'">Ver</button></div>').join('');
  $('stopsResults').innerHTML=unique.slice(0,30).map((s,i)=>'<div class="result"><strong>'+escapeHtml(s.name)+'</strong><small>'+Math.round(s.distance*1000)+' m aproximados · Parada en mapa · Sin horarios ni líneas confirmados</small><button class="soft" style="margin-top:8px;width:100%" data-stop="'+i+'">Ver en el mapa</button></div>').join('');
  $('stopsResults').querySelectorAll('[data-stop]').forEach(b=>b.addEventListener('click',()=>{const s=unique[Number(b.dataset.stop)];map.setView([s.lat,s.lon],18);L.popup().setLatLng([s.lat,s.lon]).setContent('<b>'+escapeHtml(s.name)+'</b><br>Parada cartografiada; líneas y llegadas no confirmadas.').openOn(map);}));
  }catch(e){status('stopsStatus',e.message+' Comprueba tu conexión e inténtalo más tarde.','error');}
