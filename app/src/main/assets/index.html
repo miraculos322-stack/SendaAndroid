@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#123f32">
+<title>SENDA · Tu ciudad en movimiento</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<style>
+:root{--forest:#123f32;--green:#1b5b47;--mint:#bdf4d9;--bg:#f3f8f5;--ink:#18352c;--muted:#63766e;--line:#dce8e1;--white:#fff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink);padding-bottom:78px}
+header{background:var(--forest);color:white;padding:18px 18px 15px;border-radius:0 0 22px 22px}
+.brand{font-size:23px;font-weight:850;letter-spacing:2px}.tagline{font-size:12px;color:#c8eadb;margin-top:1px}.headerrow{display:flex;justify-content:space-between;align-items:center}.pill{font-size:11px;background:#285b4a;border:1px solid #4b7d6a;border-radius:99px;padding:6px 9px}
+main{padding:14px;max-width:760px;margin:auto}.view{display:none}.view.active{display:block}.sectiontitle{font-size:18px;font-weight:800;margin:6px 0 10px}.sub{color:var(--muted);font-size:13px;line-height:1.45}
+.card{background:white;border:1px solid var(--line);border-radius:17px;padding:14px;margin:10px 0;box-shadow:0 3px 12px #163d2d0b}
+label{display:block;font-size:12px;font-weight:700;color:#496258;margin:10px 0 5px}input,select,textarea{width:100%;padding:12px;border:1px solid #cbdcd2;border-radius:11px;font:inherit;background:white;color:var(--ink);outline-color:#51b58a}textarea{min-height:80px;resize:vertical}
+button{font:inherit;font-weight:700;border:0;border-radius:12px;padding:12px 14px;cursor:pointer;min-height:44px}
+.primary{background:var(--forest);color:white}.mint{background:var(--mint);color:var(--forest)}.soft{background:#edf5f0;color:var(--forest);border:1px solid #d8e8df}.danger{background:#fff0ee;color:#8b2f2a;border:1px solid #f0d1cd}.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.btnrow button{flex:1}
+#map{height:330px;border-radius:15px;border:1px solid var(--line);z-index:1}.mapnote{font-size:11px;color:var(--muted);margin:7px 2px 0}
+.fieldrow{display:flex;gap:8px}.fieldrow>*{flex:1;min-width:0}.result{padding:12px;border:1px solid var(--line);border-radius:12px;margin-top:8px;background:#fbfdfb}.result strong{display:block;font-size:14px}.result small{display:block;color:var(--muted);margin-top:4px;line-height:1.4}
+.status{font-size:12px;padding:9px 11px;border-radius:10px;background:#eff6f1;color:#426052;margin-top:9px;line-height:1.4}.warning{background:#fff7e8;color:#785719}.error{background:#fff0ef;color:#8a312c}
+.quick{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.quick button{background:white;border:1px solid var(--line);color:var(--forest);text-align:left;padding:13px}
+.bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:500;background:white;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);padding:7px 3px calc(7px + env(safe-area-inset-bottom));box-shadow:0 -4px 18px #123f320b}
+.navbtn{background:transparent;color:#6a7d74;padding:7px 2px 5px;font-size:10px;border-radius:10px;min-height:52px;display:flex;flex-direction:column;align-items:center;gap:3px}.navbtn span:first-child{font-size:18px}.navbtn.active{background:#e7f7ef;color:var(--forest)}
+h3{font-size:15px;margin:5px 0 6px}.badge{display:inline-block;border-radius:99px;padding:4px 8px;background:#e8f7ef;color:#205c44;font-size:11px;font-weight:700}.hidden{display:none!important}
+.leaflet-popup-content-wrapper{border-radius:12px}.leaflet-control-attribution{font-size:9px!important}
+</style>
+</head>
+<body>
+<header><div class="headerrow"><div><div class="brand">SENDA</div><div class="tagline">Tu ciudad en movimiento.</div></div><span class="pill">QUITO · BETA</span></div></header>
+<main>
+<section class="view active" id="view-home">
+<div class="sectiontitle">¿Desde dónde viajas?</div>
+<div class="card">
+<div class="fieldrow"><div><label for="origin">Punto de partida</label><input id="origin" placeholder="Tu ubicación o una dirección"></div><button class="mint" style="align-self:end" id="locateBtn">📍 Ubicarme</button></div>
+<label for="destination">¿A dónde quieres ir?</label><input id="destination" placeholder="Escribe un lugar o dirección de Quito">
+<div class="btnrow"><button class="primary" id="searchDestBtn">Buscar destino</button><button class="soft" id="showRouteBtn">Ver en Rutas</button></div>
+<div id="homeStatus" class="status">El mapa y las búsquedas necesitan conexión a internet. Puedes mover y acercar el mapa.</div>
+</div>
+<div class="sectiontitle">Mapa de Quito</div>
+<div class="card" style="padding:9px"><div id="map"></div><div class="mapnote">Mapa © OpenStreetMap contributors. Las paradas dependen de los datos cartografiados disponibles.</div></div>
+<div class="sectiontitle">Accesos rápidos</div>
+<div class="quick">
+<button data-tab="buses">🚌 Buses cercanos<small class="sub">Buscar paradas alrededor</small></button>
+<button data-tab="routes">🧭 Buscar rutas<small class="sub">Origen y destino</small></button>
+<button data-tab="guardian">🛡️ Modo Guardián<small class="sub">Preparar aviso de viaje</small></button>
+<button data-tab="access">♿ Accesibilidad<small class="sub">Opciones y orientación</small></button>
+</div>
+</section>
+
+<section class="view" id="view-buses">
+<div class="sectiontitle">Buses y paradas cercanas</div>
+<p class="sub">Busca paradas registradas en OpenStreetMap alrededor de tu ubicación. Esto no confirma qué buses están circulando ni sus tiempos de llegada.</p>
+<div class="card">
+<label>Buscar alrededor de</label><div class="fieldrow"><button class="primary" id="nearMeBtn">📍 Mi ubicación</button><button class="soft" id="nearMapBtn">Centro del mapa</button></div>
+<label for="radius">Radio de búsqueda</label><select id="radius"><option value="500">500 metros</option><option value="1000" selected>1 km</option><option value="1500">1,5 km</option><option value="2500">2,5 km</option></select>
+<div class="btnrow"><button class="primary" id="findStopsBtn">Buscar paradas</button><button class="soft" id="refreshStopsBtn">Actualizar</button></div>
+<div id="stopsStatus" class="status">Pulsa «Buscar paradas» para consultar datos cartografiados.</div>
+<div id="stopsResults"></div>
+</div>
+</section>
+
+<section class="view" id="view-routes">
+<div class="sectiontitle">Planifica tu viaje</div>
+<div class="card">
+<label for="routeOrigin">Origen</label><input id="routeOrigin" placeholder="Ej. El Labrador, Quito">
+<div class="btnrow"><button class="soft" id="useCurrentBtn">Usar mi ubicación actual</button><button class="soft" id="useHomeOriginBtn">Usar origen de Inicio</button></div>
+<label for="routeDestination">Destino</label><input id="routeDestination" placeholder="Ej. PUCE, Quito">
+<button class="primary" style="width:100%;margin-top:12px" id="planBtn">Mostrar origen y destino</button>
+<div id="routeStatus" class="status warning">La planificación de líneas, horarios y transbordos requiere datos oficiales de transporte que aún deben integrarse. Esta versión no inventa rutas de bus.</div>
+<div id="routeResults"></div>
+</div>
+<div class="card"><h3>Cómo avanzar a rutas de transporte reales</h3><p class="sub">Se necesita confirmar y obtener acceso a datos de rutas, paradas y horarios (por ejemplo, GTFS) de las autoridades u operadoras. Las posiciones en vivo requieren además una fuente compatible, como GTFS-Realtime o un servicio autorizado.</p></div>
+</section>
+
+<section class="view" id="view-guardian">
+<div class="sectiontitle">Modo Guardián</div>
+<p class="sub">Prepara un aviso de viaje para una persona de confianza. En esta versión, el envío es manual; no hay seguimiento continuo ni alertas automáticas.</p>
+<div class="card">
+<label for="trustedName">Persona de confianza (opcional)</label><input id="trustedName" placeholder="Nombre de la persona">
+<label for="trustedContact">Contacto o medio (opcional)</label><input id="trustedContact" placeholder="Teléfono o correo; no se valida">
+<label for="guardianDestination">Destino del viaje</label><input id="guardianDestination" placeholder="¿A dónde te diriges?">
+<label for="guardianDuration">Duración aproximada (opcional)</label><input id="guardianDuration" placeholder="Ej. 35 minutos">
+<label><input type="checkbox" id="shareLocation" style="width:auto;min-height:auto;margin-right:6px"> Incluir mi ubicación actual si está disponible</label>
+<div class="btnrow"><button class="primary" id="prepareGuardianBtn">Preparar aviso</button><button class="soft" id="shareGuardianBtn">Compartir aviso</button></div>
+<textarea id="guardianMessage" placeholder="Aquí aparecerá el mensaje que puedes revisar antes de compartirlo." readonly></textarea>
+<div class="status warning">SENDA no es un servicio de emergencias. Comparte solo la información que quieras enviar y verifica que el mensaje se haya enviado.</div>
+</div>
+<div class="card"><h3>Alertas comunitarias</h3><p class="sub">Los reportes de esta versión se guardan únicamente en este dispositivo; todavía no se publican para otros usuarios.</p>
+<label for="reportType">Tipo de reporte</label><select id="reportType"><option>Problema en una parada</option><option>Retraso o interrupción</option><option>Cambio de recorrido</option><option>Ocupación del bus</option><option>Incidente de seguridad</option><option>Accesibilidad</option></select>
+<label for="reportText">Descripción (sin datos personales de terceros)</label><textarea id="reportText" placeholder="Describe lo observado de forma breve"></textarea>
+<button class="primary" style="width:100%;margin-top:10px" id="saveReportBtn">Guardar reporte en este dispositivo</button><div id="reportStatus" class="status">Los reportes locales no son alertas verificadas.</div><div id="localReports"></div>
+</div>
+</section>
+
+<section class="view" id="view-access">
+<div class="sectiontitle">Accesibilidad</div>
+<div class="card"><h3>Opciones de SENDA</h3><p class="sub">Diseño con textos legibles, botones amplios y etiquetas para no depender únicamente de los colores.</p>
+<div class="btnrow"><button class="soft" id="largerTextBtn">Aumentar texto</button><button class="soft" id="normalTextBtn">Texto normal</button></div>
+</div>
+<div class="card"><h3>Información de transporte accesible</h3><p class="sub">La accesibilidad de una parada, unidad o asiento solo puede confirmarse si la fuente de datos la incluye.</p><div class="result"><strong>Paradas accesibles</strong><small>Información no disponible de forma general en esta versión. Consulta cada elemento si tiene datos registrados.</small></div><div class="result"><strong>Asientos prioritarios y espacios accesibles</strong><small>No se puede confirmar disponibilidad en tiempo real. La información debe verificarse con la operadora.</small></div></div>
+<div class="card"><h3>Privacidad y permisos</h3><p class="sub">La ubicación se solicita solo cuando pulsas una función que la necesita. Puedes escribir el origen manualmente si rechazas el permiso. El contacto de confianza se introduce manualmente y no se lee tu agenda.</p></div>
+</section>
+</main>
+
+<nav class="bottomnav" aria-label="Navegación principal">
+<button class="navbtn active" data-tab="home"><span>⌂</span><span>Inicio</span></button>
+<button class="navbtn" data-tab="buses"><span>🚌</span><span>Buses</span></button>
+<button class="navbtn" data-tab="routes"><span>⇄</span><span>Rutas</span></button>
+<button class="navbtn" data-tab="guardian"><span>🛡</span><span>Guardián</span></button>
+<button class="navbtn" data-tab="access"><span>♿</span><span>Acceso</span></button>
+</nav>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+let map, userMarker=null, originMarker=null, destMarker=null, selectedLatLng=null, userLoc=null, stopLayer=null, lastGeocode=0, lastStops=[];
+const quito=[-0.1807,-78.4678];
+function status(id,msg,type){const el=$(id);el.textContent=msg;el.className='status'+(type?' '+type:'');}
+function initMap(){
+ if(!window.L){$('map').innerHTML='<div class="status error">No se pudo cargar el mapa. Revisa tu conexión.</div>';status('homeStatus','No se pudo cargar el mapa: hace falta conexión a internet.','error');return;}
+ map=L.map('map').setView(quito,13);
+ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(map);
+ map.on('click',e=>{selectedLatLng=e.latlng;setDestinationMarker(e.latlng);status('homeStatus','Punto seleccionado en el mapa: '+e.latlng.lat.toFixed(5)+', '+e.latlng.lng.toFixed(5));});
+}
+function setUser(lat,lon){
+ userLoc={lat,lon};
+ if(!map)return;
+ if(userMarker)userMarker.setLatLng([lat,lon]);else userMarker=L.circleMarker([lat,lon],{radius:8,color:'#fff',weight:3,fillColor:'#1684dc',fillOpacity:1}).addTo(map).bindPopup('Tu ubicación');
+ map.setView([lat,lon],15);
+ $('origin').value='Mi ubicación actual';$('routeOrigin').value=lat.toFixed(5)+', '+lon.toFixed(5);
+}
+function locate(){
+ status('homeStatus','Solicitando ubicación…');
+ if(!navigator.geolocation){status('homeStatus','Este dispositivo no ofrece geolocalización en este momento. Escribe el origen manualmente.','error');return;}
+ navigator.geolocation.getCurrentPosition(p=>{setUser(p.coords.latitude,p.coords.longitude);status('homeStatus','Ubicación obtenida. Solo se usa para las funciones que has solicitado.');},e=>{status('homeStatus','No se obtuvo la ubicación. Revisa el permiso o escribe el origen manualmente.','warning');},{enableHighAccuracy:true,timeout:12000,maximumAge:60000});
+}
+function setDestinationMarker(ll){
+ if(!map)return;
+ if(destMarker)destMarker.setLatLng(ll);else destMarker=L.marker(ll).addTo(map);
+ destMarker.bindPopup('Punto seleccionado').openPopup();
+}
+async function geocode(q){
+ const now=Date.now();const wait=Math.max(0,1100-(now-lastGeocode));if(wait)await new Promise(r=>setTimeout(r,wait));lastGeocode=Date.now();
+ const url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=ec&q='+encodeURIComponent(q+', Quito, Ecuador');
+ const res=await fetch(url,{headers:{'Accept':'application/json'}});if(!res.ok)throw new Error('Servicio de búsqueda no disponible');const arr=await res.json();if(!arr.length)throw new Error('No se encontró ese lugar. Prueba con una dirección más específica.');return {lat:Number(arr[0].lat),lon:Number(arr[0].lon),name:arr[0].display_name};
+}
+async function searchDestination(){
+ const q=$('destination').value.trim();if(!q){status('homeStatus','Escribe un destino para buscar.','warning');return;}
+ status('homeStatus','Buscando el lugar…');
+ try{const p=await geocode(q);setDestinationMarker([p.lat,p.lon]);map.setView([p.lat,p.lon],16);selectedLatLng={lat:p.lat,lng:p.lon};$('destination').value=p.name; $('routeDestination').value=p.name;status('homeStatus','Destino encontrado y marcado en el mapa.');}
+ catch(e){status('homeStatus',e.message+' Si el servicio no responde, inténtalo más tarde.','error');}
+}
+function distKm(a,b){const R=6371,dLat=(b.lat-a.lat)*Math.PI/180,dLon=(b.lon-a.lon)*Math.PI/180;const x=Math.sin(dLat/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(x));}
+async function findStops(){
+ if(!map){status('stopsStatus','El mapa no está disponible.','error');return;}
+ const center=userLoc||{lat:map.getCenter().lat,lon:map.getCenter().lng};
+ const radius=Number($('radius').value);
+ status('stopsStatus','Consultando paradas cartografiadas…');
+ $('stopsResults').innerHTML='';
+ const query='[out:json][timeout:20];(node(around:'+radius+','+center.lat+','+center.lon+')["highway"="bus_stop"];node(around:'+radius+','+center.lat+','+center.lon+')["public_transport"="platform"]["bus"!="no"];way(around:'+radius+','+center.lat+','+center.lon+')["highway"="bus_stop"];);out center tags;';
+ try{
+ const res=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body:'data='+encodeURIComponent(query)});
+ if(!res.ok)throw new Error('El servicio de paradas está temporalmente ocupado.');
+ const data=await res.json();const items=(data.elements||[]).map(e=>{const lat=e.lat??e.center?.lat,lon=e.lon??e.center?.lon;if(lat==null||lon==null)return null;return {lat,lon,name:e.tags?.name||e.tags?.local_ref||'Parada sin nombre registrado',tags:e.tags||{},id:e.id};}).filter(Boolean);
+ const unique=[];const seen=new Set();for(const it of items){const k=it.lat.toFixed(5)+','+it.lon.toFixed(5);if(!seen.has(k)){seen.add(k);it.distance=distKm({lat:center.lat,lon:center.lon},{lat:it.lat,lon:it.lon});unique.push(it);}}
+ unique.sort((a,b)=>a.distance-b.distance);lastStops=unique;
+ if(stopLayer)map.removeLayer(stopLayer);stopLayer=L.layerGroup().addTo(map);
+ unique.forEach(s=>L.circleMarker([s.lat,s.lon],{radius:6,color:'#fff',weight:2,fillColor:'#d17b23',fillOpacity:1}).addTo(stopLayer).bindPopup('<b>'+escapeHtml(s.name)+'</b><br>Parada cartografiada<br>'+Math.round(s.distance*1000)+' m aprox.'));
+ if(!unique.length){status('stopsStatus','No se encontraron paradas registradas en ese radio. Esto no significa que no existan paradas reales.','warning');return;}
+ status('stopsStatus','Se encontraron '+unique.length+' elementos cartografiados. No son datos de buses en vivo.');
+ $('stopsResults').innerHTML=unique.slice(0,30).map((s,i)=>'<div class="result"><strong>'+escapeHtml(s.name)+'</strong><small>'+Math.round(s.distance*1000)+' m aproximados · Parada en mapa · Sin horarios ni líneas confirmados</small><button class="soft" style="margin-top:8px;width:100%" data-stop="'+i+'">Ver en el mapa</button></div>').join('');
+ $('stopsResults').querySelectorAll('[data-stop]').forEach(b=>b.addEventListener('click',()=>{const s=unique[Number(b.dataset.stop)];map.setView([s.lat,s.lon],18);L.popup().setLatLng([s.lat,s.lon]).setContent('<b>'+escapeHtml(s.name)+'</b><br>Parada cartografiada; líneas y llegadas no confirmadas.').openOn(map);}));
+ }catch(e){status('stopsStatus',e.message+' Comprueba tu conexión e inténtalo más tarde.','error');}
+}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function showTab(name){
+ document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));$('view-'+name).classList.add('active');
+ document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));
+ if(map)setTimeout(()=>map.invalidateSize(),150);
+}
+document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
+$('locateBtn').addEventListener('click',locate);$('nearMeBtn').addEventListener('click',()=>{if(userLoc)findStops();else{navigator.geolocation?.getCurrentPosition(p=>{setUser(p.coords.latitude,p.coords.longitude);findStops();},()=>status('stopsStatus','No se pudo obtener ubicación. Pulsa «Centro del mapa» o concede permiso.','warning'));}});
+$('nearMapBtn').addEventListener('click',()=>{if(map){const c=map.getCenter();userLoc={lat:c.lat,lon:c.lng};findStops();}});
+$('findStopsBtn').addEventListener('click',findStops);$('refreshStopsBtn').addEventListener('click',findStops);
+$('searchDestBtn').addEventListener('click',searchDestination);$('destination').addEventListener('keydown',e=>{if(e.key==='Enter')searchDestination();});
+$('showRouteBtn').addEventListener('click',()=>{if($('destination').value)$('routeDestination').value=$('destination').value; if($('origin').value)$('routeOrigin').value=$('origin').value;showTab('routes');});
+$('useCurrentBtn').addEventListener('click',()=>{if(userLoc)$('routeOrigin').value=userLoc.lat.toFixed(5)+', '+userLoc.lon.toFixed(5);else navigator.geolocation?.getCurrentPosition(p=>{setUser(p.coords.latitude,p.coords.longitude);$('routeOrigin').value=p.coords.latitude.toFixed(5)+', '+p.coords.longitude.toFixed(5);},()=>status('routeStatus','Ubicación no disponible; escribe el origen manualmente.','warning'));});
+$('useHomeOriginBtn').addEventListener('click',()=>$('routeOrigin').value=$('origin').value);
+$('planBtn').addEventListener('click',async()=>{
+ const o=$('routeOrigin').value.trim(),d=$('routeDestination').value.trim();
+ if(!o||!d){status('routeStatus','Escribe un origen y un destino.','warning');return;}
+ status('routeStatus','Buscando los lugares para mostrarlos en el mapa…');
+ try{
+ let a,b;
+ if(userLoc && (o==='Mi ubicación actual'||o===userLoc.lat.toFixed(5)+', '+userLoc.lon.toFixed(5)))a={lat:userLoc.lat,lon:userLoc.lon,name:'Origen actual'};
+ else {const m=o.match(/^(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)$/);a=m?{lat:+m[1],lon:+m[2],name:o}:await geocode(o);}
+ const n=d.match(/^(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)$/);b=n?{lat:+n[1],lon:+n[2],name:d}:await geocode(d);
+ if(originMarker)map.removeLayer(originMarker);originMarker=L.circleMarker([a.lat,a.lon],{radius:8,color:'#fff',weight:3,fillColor:'#1d9867',fillOpacity:1}).addTo(map).bindPopup('Origen');
+ setDestinationMarker([b.lat,b.lon]);map.fitBounds([[a.lat,a.lon],[b.lat,b.lon]],{padding:[30,30],maxZoom:15});
+ const km=distKm({lat:a.lat,lon:a.lon},{lat:b.lat,lon:b.lon});
+ $('routeResults').innerHTML='<div class="result"><strong>Origen y destino ubicados</strong><small>Distancia en línea recta: '+km.toFixed(1)+' km. No es la distancia real del viaje.</small></div><div class="status warning">Todavía no se calculó un trayecto en transporte público. No hay líneas, transbordos ni tiempos de viaje confirmados en esta versión.</div>';
+ status('routeStatus','Los puntos están marcados en el mapa.','');
+ }catch(e){status('routeStatus',e.message,'error');}
+});
+$('prepareGuardianBtn').addEventListener('click',()=>{
+ const name=$('trustedName').value.trim(),dest=$('guardianDestination').value.trim(),duration=$('guardianDuration').value.trim();
+ if(!dest){status('reportStatus','Escribe el destino del viaje en Modo Guardián.','warning');return;}
+ let msg='Aviso de viaje SENDA\\nDestino: '+dest+'\\nHora de inicio: '+new Date().toLocaleString('es-EC')+(duration?'\\nDuración aproximada indicada: '+duration:'')+'\\nEste es un aviso manual; no implica seguimiento automático.';
+ if(name)msg='Para: '+name+'\\n'+msg;
+ if($('shareLocation').checked&&userLoc)msg+='\\nUbicación al preparar el aviso: https://www.openstreetmap.org/?mlat='+userLoc.lat+'&mlon='+userLoc.lon+'#map=16/'+userLoc.lat+'/'+userLoc.lon;
+ $('guardianMessage').value=msg;status('reportStatus','Aviso preparado. Revísalo y pulsa «Compartir aviso».','');
+});
+$('shareGuardianBtn').addEventListener('click',async()=>{
+ const msg=$('guardianMessage').value;if(!msg){status('reportStatus','Primero prepara el aviso.','warning');return;}
+ try{if(navigator.share){await navigator.share({title:'Aviso de viaje SENDA',text:msg});status('reportStatus','Se abrió el menú para compartir. Confirma el envío en la aplicación que elijas.');}
+ else if(navigator.clipboard){await navigator.clipboard.writeText(msg);status('reportStatus','Mensaje copiado. Pégalo en la aplicación que quieras usar y confirma su envío.');}
+ else{$('guardianMessage').focus();$('guardianMessage').select();status('reportStatus','Selecciona y copia el mensaje manualmente.','warning');}}
+ catch(e){status('reportStatus','No se confirmó el envío. Puedes copiar el texto y compartirlo manualmente.','warning');}
+});
+function readReports(){try{return JSON.parse(localStorage.getItem('sendaLocalReports')||'[]')}catch(e){return[]}}
+function renderReports(){const arr=readReports();$('localReports').innerHTML=arr.length?arr.slice().reverse().map(r=>'<div class="result"><strong>'+escapeHtml(r.type)+'</strong><small>'+escapeHtml(r.time)+' · Reporte local no verificado<br>'+escapeHtml(r.text)+'</small></div>').join(''):'<p class="sub">Todavía no hay reportes guardados en este dispositivo.</p>';}
+$('saveReportBtn').addEventListener('click',()=>{
+ const text=$('reportText').value.trim();if(!text){status('reportStatus','Describe brevemente lo que observaste.','warning');return;}
+ const arr=readReports();arr.push({type:$('reportType').value,text,time:new Date().toLocaleString('es-EC')});
+ try{localStorage.setItem('sendaLocalReports',JSON.stringify(arr.slice(-30)));$('reportText').value='';renderReports();status('reportStatus','Reporte guardado solo en este dispositivo. No fue enviado a otros usuarios ni verificado.');}
+ catch(e){status('reportStatus','No se pudo guardar el reporte en este dispositivo.','error');}
+});
+$('largerTextBtn').addEventListener('click',()=>document.body.style.fontSize='18px');$('normalTextBtn').addEventListener('click',()=>document.body.style.fontSize='16px');
+document.querySelectorAll('.quick button').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
+initMap();renderReports();
+})();
+</script>
+</body></html>
