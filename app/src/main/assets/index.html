@@ -118,7 +118,7 @@ let map, userMarker=null, originMarker=null, destMarker=null, selectedLatLng=nul
 const quito=[-0.1807,-78.4678];
 function status(id,msg,type){const el=$(id);el.textContent=msg;el.className='status'+(type?' '+type:'');}
 function initMap(){
- if(!window.L){$('map').innerHTML='<div class="status error">No se pudo cargar el mapa. Revisa tu conexión.</div>';status('homeStatus','No se pudo cargar el mapa: hace falta conexión a internet.','error');return;}
+ if(!window.L){$('map').innerHTML='<div style="padding:20px;text-align:center;"><p>No se pudo cargar el mapa. Revisa tu conexión a internet.</p><button onclick="location.reload()" style="background:#123f32;color:white;padding:10px;border-radius:8px;border:none;">Reintentar</button></div>';return;}
  map=L.map('map').setView(quito,13);
  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(map);
  map.on('click',e=>{selectedLatLng=e.latlng;setDestinationMarker(e.latlng);status('homeStatus','Punto seleccionado en el mapa: '+e.latlng.lat.toFixed(5)+', '+e.latlng.lng.toFixed(5));});
